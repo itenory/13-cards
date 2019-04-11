@@ -1,0 +1,23 @@
+{
+  "env": {
+    "browser": true,
+    "es6": true
+  },
+  "plugins": ["react", "jsx-a11y", "import"],
+  "parser": "babel-eslint",
+  "extends": ["airbnb", "prettier"],
+  "rules": {
+    "no-unused-vars": "warn",
+    "comma-dangle": 0,
+
+    "react/jsx-filename-extension": 0,
+    "jsx-a11y/anchor-is-valid": [
+      "off",
+      {
+        "components": ["Link"],
+        "specialLink": ["hrefLeft", "hrefRight"],
+        "aspects": ["noHref", "invalidHref", "preferButton"]
+      }
+    ]
+  }
+}
