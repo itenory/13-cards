@@ -27,7 +27,7 @@ class GamePage extends Component {
         })
         .catch(err => {
           this.setState({
-            matchError: err
+            matchError: err.response.data
           });
         });
     }
@@ -38,7 +38,7 @@ class GamePage extends Component {
 
     if (!roomId || matchError) return <Redirect to="/" />;
 
-    if (!matchStart) return <GameQueue />;
+    if (!matchStart) return <GameQueue roomId={roomId} />;
 
     return <GameBoard />;
   }
