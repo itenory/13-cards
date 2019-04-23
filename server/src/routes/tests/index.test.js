@@ -1,4 +1,3 @@
-const http = require('http');
 const request = require('supertest');
 const app = require('../../services/app');
 const { createRoom } = require('../../services/room');
@@ -7,8 +6,6 @@ const {
   connectDatabase,
   disconnectDatabase
 } = require('../../services/database');
-
-const server = http.createServer(app);
 
 beforeAll(async () => {
   await connectDatabase(process.env.DB_URI);
