@@ -113,6 +113,38 @@ describe('Playing cards', () => {
     const board = await runner.getBoard(roomId);
     expect(board).toBeDefined();
     expect(Array.isArray(board)).toBeTruthy();
+    expect(board).toHaveLength(1);
     expect(board.includes(cardToPlay)).toBeTruthy();
+  });
+
+  test('Playing a card with a card on board', async () => {
+    const player = 1;
+    const hand = await runner.getPlayerHand(roomId, player);
+    let firstCardToPlay;
+    let secondCardToPlay;
+
+    // Make sure second card is less than first card
+    if (runner.compareCards(hand[0], hand[1]) === -1) {
+      firstCardToPlay = hand[0];
+      secondCardToPlay = hand[1];
+    } else {
+      firstCardToPlay = hand[1];
+      secondCardToPlay = hand[0];
+    }
+
+    const firstResult = await runner.playCard(roomId, firstCardToPlay, player);
+    expect(firstResult).toBeTruthy();
+
+    const result = await runner.playCard(roomId, secondCardToPlay, player);
+    expect(result).toBeTruthy();
+
+    const board = await runner.getBoard(roomId);
+    expect(board).toBeDefined();
+    expect(Array.isArray(board)).toBeTruthy();
+    expect(board).toHaveLength(2);
+
+    // Board has both cards
+    expect(board.includes(firstCardToPlay)).toBeTruthy();
+    expect(board.includes(secondCardToPlay)).toBeTruthy();
   });
 });
