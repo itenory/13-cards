@@ -1,6 +1,6 @@
 // Array containing card markers
 const deck = [
-  'CA',
+  'C1',
   'C2',
   'C3',
   'C4',
@@ -10,10 +10,10 @@ const deck = [
   'C8',
   'C9',
   'C10',
-  'CJ',
-  'CQ',
-  'CK',
-  'DA',
+  'C11',
+  'C12',
+  'C13',
+  'D1',
   'D2',
   'D3',
   'D4',
@@ -23,10 +23,10 @@ const deck = [
   'D8',
   'D9',
   'D10',
-  'DJ',
-  'DQ',
-  'DK',
-  'HA',
+  'D11',
+  'D12',
+  'D13',
+  'H1',
   'H2',
   'H3',
   'H4',
@@ -36,10 +36,10 @@ const deck = [
   'H8',
   'H9',
   'H10',
-  'HJ',
-  'HQ',
-  'HK',
-  'SA',
+  'H11',
+  'H12',
+  'H13',
+  'S1',
   'S2',
   'S3',
   'S4',
@@ -49,9 +49,9 @@ const deck = [
   'S8',
   'S9',
   'S10',
-  'SJ',
-  'SQ',
-  'SK'
+  'S11',
+  'S12',
+  'S13'
 ];
 
 /**
@@ -83,6 +83,42 @@ function getBoardKey(roomId) {
 }
 
 /**
+ * Compares two cards to determine if card1 is greater, equal, or less than
+ *  card2. Current rules are set that 2 and Ace are highest value with suits
+ *  ranking as (H)earts ♥, (D)iamonds ♦, (C)lubs ♣, (S)pades ♠.
+ * @param {*} card1 A card in string form being compared
+ * @param {*} card2 A card in string form being compared
+ * @return {Number} Returns a number indicating the whether the card1 is
+ *  greater (1), equal (0), or less (-1) than card2.
+ */
+function compareCards(card1, card2) {
+  // Check for same card
+  if (card1 === card2) return 0;
+
+  const c1Suit = card1.charAt(0);
+  const c2Suit = card2.charAt(0);
+  const c1Value = parseInt(card1.substring(1), 10);
+  const c2Value = parseInt(card2.substring(1), 10);
+
+  // If card values are the same, compare the suits
+  if (c1Value === c2Value) {
+    // Spades is the lowest suit, so automatically is the lower card
+    if (c1Suit === 'S') return -1;
+    if (c2Suit === 'S') return 1;
+
+    // All other suits are ranked the same as their numerical value.
+    return c1Suit > c2Suit ? 1 : -1;
+  }
+
+  // If either card is a 2 or Ace
+  if (c1Value <= 2 || c2Value <= 2) {
+    return c1Value === 2 || (c1Value === 1 && c2Value !== 2) ? 1 : -1;
+  }
+
+  return c1Value > c2Value ? 1 : -1;
+}
+
+/**
  * Creates methods needed to run game controller.
  * @param {Object} redisClient Promise-based client to interact with redis
  * @return {Object} Object containing functions for running game logic.
@@ -106,6 +142,7 @@ module.exports = function createController(redisClient) {
         await redisClient.saddAsync(getHandKey(roomId, player), cards);
       }
     },
+    compareCards,
     getPlayerHand: (roomId, player) => {
       return redisClient.smembersAsync(getHandKey(roomId, player));
     },
@@ -120,13 +157,19 @@ module.exports = function createController(redisClient) {
     getBoard: roomId => {
       return redisClient.smembersAsync(getBoardKey(roomId));
     },
-    playCard: (roomId, card, player) => {
+    playCard: async (roomId, cardToPlay, player) => {
       // Move card from players set to the board set
-      return redisClient.smoveAsync(
-        getHandKey(roomId, player),
-        getBoardKey(roomId),
-        card
-      );
+      const topCard = (await redisClient.smembersAsync(getBoardKey(roomId)))[0];
+
+      if (!topCard || compareCards(cardToPlay, topCard) === 1) {
+        return redisClient.smoveAsync(
+          getHandKey(roomId, player),
+          getBoardKey(roomId),
+          cardToPlay
+        );
+      }
+
+      return 0;
     }
   };
 };
