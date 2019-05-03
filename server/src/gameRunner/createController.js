@@ -1,3 +1,4 @@
+/* eslint-disable no-await-in-loop */
 // Array containing card markers
 const deck = [
   'C1',
@@ -172,7 +173,7 @@ module.exports = function createController(redisClient) {
     initGame: async (roomId, playerCount) => {
       // Clear all reset in case of remaining data
 
-      let lowest = null;
+      const lows = []; // Stores the lowest card from each hand
       await Promise.all([
         redisClient.delAsync(getDeckKey(roomId), 52),
         redisClient.delAsync(getBoardKey(roomId), 52),
@@ -186,9 +187,13 @@ module.exports = function createController(redisClient) {
       for (let player = 1; player <= playerCount; player++) {
         const cards = await redisClient.spopAsync(getDeckKey(roomId), 5);
         await redisClient.saddAsync(getHandKey(roomId, player), cards);
-        lowest = getLowestCard(cards);
+
+        // Get lowest card from each hand
+       lows.push(getLowestCard(cards));
       }
-      await redisClient.setAsync(getLowestDealtKey(roomId), lowest);
+
+      const lowestDealt = getLowestCard(lows); // Find lowest dealt
+      return redisClient.setAsync(getLowestDealtKey(roomId), lowestDealt);
     },
     compareCards,
     getPlayerHand: (roomId, player) => {
@@ -206,7 +211,6 @@ module.exports = function createController(redisClient) {
       return redisClient.smembersAsync(getBoardKey(roomId));
     },
     playCard: async (roomId, cardToPlay, player) => {
-      // Move card from players set to the board set
 
       // Get top card, current & last player
       let [topCard, currentPlayer, lastPlayer] = await Promise.all([
@@ -216,22 +220,16 @@ module.exports = function createController(redisClient) {
       ]);
 
       // First card(s) played must be lowest
-      console.log(currentPlayer, player);
       if (!currentPlayer) {
         const lowest = await redisClient.getAsync(getLowestDealtKey(roomId));
-        console.log('Lowest', lowest, cardToPlay);
 
         if (cardToPlay !== lowest) {
-          // console.log(cardToPlay, lowest);
-          console.log('Not lowest card');
           return 0;
         }
         currentPlayer = player;
       } else if (currentPlayer != player) {
         return 0;
       }
-
-      console.log('Made it');
 
       // If no player played last, then must be lowest card in all hands
       if (!topCard[0] || compareCards(cardToPlay, topCard[0]) === 1) {
@@ -256,7 +254,7 @@ module.exports = function createController(redisClient) {
 
       return 0;
     },
-    getLowest: roomId => redisClient(getLowestDealtKey(roomId)),
+    getLowest: roomId => redisClient.getAsync(getLowestDealtKey(roomId)),
     getCurrentPlayer: roomId =>
       redisClient.getAsync(getCurrentPlayerKey(roomId)),
     getLastPlayer: roomId => redisClient.getAsync(getLastPlayerKey(roomId))
