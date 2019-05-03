@@ -4,7 +4,9 @@
   "description": "13 cards game built with react and node for backend.",
   "main": "index.js",
   "scripts": {
+    "start": "npm concurrently \"npm run start:server\" \"npm run watch:app\" ",
     "dev": "concurrently \"npm run watch:app\" \"npm run watch:server\" ",
+    "start:server": "npm run start --prefix server",
     "watch:app": "npm run start --prefix app",
     "watch:server": "npm run dev --prefix server",
     "test:server": "npm test --prefix server",
