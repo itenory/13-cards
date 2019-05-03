@@ -40,7 +40,10 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  if (redisClient) redisClient.quit();
+  if (redisClient) {
+    redisClient.flushall();
+    redisClient.quit();
+  }
 });
 
 describe('Initialize Game', () => {
@@ -58,6 +61,35 @@ describe('Initialize Game', () => {
 
     const runner = createController(redisClient);
     runner.initGame(roomId, playerCount);
+  });
+
+  test('Lowest card is correctly stored', async () => {
+    const roomId = '101';
+    const playerCount = 4;
+
+    // Init Game Board
+    const runner = createController(redisClient);
+    await runner.initGame(roomId, playerCount);
+
+    
+    // Get lowest card dealt and all hands
+    const hands = await runner.getAllHands(roomId);
+    const lowestDealt = await runner.getLowest(roomId);
+
+    expect(lowestDealt).toBeDefined();
+
+    // Check if lowest card is acutally lowest
+    let trulyLowest = true;
+
+    hands.forEach(hand => {
+      hand.forEach(card => {
+        if (runner.compareCards(lowestDealt, card) === 1) {
+          trulyLowest = false;
+        }
+      })
+    });
+
+    expect(trulyLowest).toBeTruthy();
   });
 });
 
@@ -109,17 +141,31 @@ describe('Playing cards', () => {
     await runner.initGame(roomId, playerCount);
   });
 
+  // Clear database between runs
+  afterEach(async () => {
+    await redisClient.flushallAsync();
+  })
+
   test('Playing card not in playerhand returns 0', async () => {
     const results = await runner.playCard(roomId, 'A', 1);
 
     expect(results).toBeFalsy();
   });
 
-  test('Playing any card results in board change', async () => {
-    const hand = await runner.getPlayerHand(roomId, 1);
-    const cardToPlay = hand[0];
+  test('Playing any card results in board change', async () => {  
+    // Find lowest card to dealt
+    const cardToPlay = await runner.getLowest(roomId);
+    const hands = await runner.getAllHands(roomId);
+    let player;
+    
+    hands.forEach((hand, index) => {
+      if (hand.includes(cardToPlay)) {
+        player = index + 1;
+      }
+    });
 
-    const result = await runner.playCard(roomId, cardToPlay, 1);
+
+    const result = await runner.playCard(roomId, cardToPlay, player);
     expect(result).toBeTruthy();
 
     const board = await runner.getBoard(roomId);
@@ -130,26 +176,36 @@ describe('Playing cards', () => {
   });
 
   test('Playing a card with a card on board', async () => {
-    const player = 1;
-    const hand = await runner.getPlayerHand(roomId, player);
+    // Find lowest card to dealt
+    const lowestCardDealt = await runner.getLowest(roomId);
+    const hands = await runner.getAllHands(roomId);
+    let player; // Player who holds lowest dealt card
+    let nextPlayer;
     let firstCardToPlay;
     let secondCardToPlay;
+    let indexNextCard = 0;
 
-    // Make sure second card is less than first card
-    if (runner.compareCards(hand[0], hand[1]) === -1) {
-      firstCardToPlay = hand[0];
-      secondCardToPlay = hand[1];
-    } else {
-      firstCardToPlay = hand[1];
-      secondCardToPlay = hand[0];
-    }
+    // Determine which player has the lowest card
+    hands.forEach((hand, index) => {
+      if (hand.includes(lowestCardDealt)) {
+        player = index + 1;
+        nextPlayer = (player % 4) + 1;
+      }
+    });
 
-    const firstResult = await runner.playCard(roomId, firstCardToPlay, player);
-    expect(firstResult).toBeTruthy();
+    // Lowest card dealt and any card from next player
+    firstCardToPlay = lowestCardDealt;
+    secondCardToPlay = hands[nextPlayer-1][0];
 
-    const result = await runner.playCard(roomId, secondCardToPlay, player);
-    expect(result).toBeTruthy();
+    // Play first card
+    const firstCardResult = await runner.playCard(roomId, firstCardToPlay, player);
+    expect(firstCardResult).toBeTruthy();
 
+    // Play Second card
+    const secondCardResult = await runner.playCard(roomId, secondCardToPlay, nextPlayer);
+    expect(secondCardResult).toBeTruthy();
+
+    // Board state 
     const board = await runner.getBoard(roomId);
     expect(board).toBeDefined();
     expect(Array.isArray(board)).toBeTruthy();
@@ -164,7 +220,7 @@ describe('Playing cards', () => {
       runner.getLastPlayer(roomId)
     ]);
 
-    expect(parseInt(currentPlayer, 10)).toBe((player + 1) % 4);
-    expect(parseInt(lastPlayer, 10)).toBe(player);
+    expect(parseInt(currentPlayer, 10)).toBe((nextPlayer + 1) % 4);
+    expect(parseInt(lastPlayer, 10)).toBe(nextPlayer);
   });
 });
