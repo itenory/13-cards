@@ -83,6 +83,33 @@ function getBoardKey(roomId) {
 }
 
 /**
+ * Generates redis key for current player.
+ * @param {String} roomId
+ * @return {String} Returns the redis key for
+ */
+function getCurrentPlayerKey(roomId) {
+  return `${roomId}:current`;
+}
+
+/**
+ * Generates a redis key for the last player to move.
+ * @param {String} roomId Id of room to generate key for
+ * @return {String} Returns redis key for lasst player.
+ */
+function getLastPlayerKey(roomId) {
+  return `${roomId}:last`;
+}
+
+/**
+ *
+ * @param {String} roomId
+ * @return {String} Returns a string with the
+ */
+function getLowestDealtKey(roomId) {
+  return `${roomId}:lowest`;
+}
+
+/**
  * Compares two cards to determine if card1 is greater, equal, or less than
  *  card2. Current rules are set that 2 and Ace are highest value with suits
  *  ranking as (H)earts ♥, (D)iamonds ♦, (C)lubs ♣, (S)pades ♠.
@@ -119,6 +146,23 @@ function compareCards(card1, card2) {
 }
 
 /**
+ *
+ * @param {Array<String>} hand Array of cards to find the lowest in
+ * @return {String} Returns lowest cards in hand.
+ */
+function getLowestCard(hand) {
+  let lowest = hand[0];
+
+  hand.forEach(card => {
+    if (compareCards(lowest, card) === 1) {
+      lowest = card;
+    }
+  });
+
+  return lowest;
+}
+
+/**
  * Creates methods needed to run game controller.
  * @param {Object} redisClient Promise-based client to interact with redis
  * @return {Object} Object containing functions for running game logic.
@@ -127,6 +171,8 @@ module.exports = function createController(redisClient) {
   return {
     initGame: async (roomId, playerCount) => {
       // Clear all reset in case of remaining data
+
+      let lowest = null;
       await Promise.all([
         redisClient.delAsync(getDeckKey(roomId), 52),
         redisClient.delAsync(getBoardKey(roomId), 52),
@@ -140,7 +186,9 @@ module.exports = function createController(redisClient) {
       for (let player = 1; player <= playerCount; player++) {
         const cards = await redisClient.spopAsync(getDeckKey(roomId), 5);
         await redisClient.saddAsync(getHandKey(roomId, player), cards);
+        lowest = getLowestCard(cards);
       }
+      await redisClient.setAsync(getLowestDealtKey(roomId), lowest);
     },
     compareCards,
     getPlayerHand: (roomId, player) => {
@@ -159,17 +207,58 @@ module.exports = function createController(redisClient) {
     },
     playCard: async (roomId, cardToPlay, player) => {
       // Move card from players set to the board set
-      const topCard = (await redisClient.smembersAsync(getBoardKey(roomId)))[0];
 
-      if (!topCard || compareCards(cardToPlay, topCard) === 1) {
-        return redisClient.smoveAsync(
+      // Get top card, current & last player
+      let [topCard, currentPlayer, lastPlayer] = await Promise.all([
+        redisClient.smembersAsync(getBoardKey(roomId)),
+        redisClient.getAsync(getCurrentPlayerKey(roomId)),
+        redisClient.getAsync(getLastPlayerKey(roomId))
+      ]);
+
+      // First card(s) played must be lowest
+      console.log(currentPlayer, player);
+      if (!currentPlayer) {
+        const lowest = await redisClient.getAsync(getLowestDealtKey(roomId));
+        console.log('Lowest', lowest, cardToPlay);
+
+        if (cardToPlay !== lowest) {
+          // console.log(cardToPlay, lowest);
+          console.log('Not lowest card');
+          return 0;
+        }
+        currentPlayer = player;
+      } else if (currentPlayer != player) {
+        return 0;
+      }
+
+      console.log('Made it');
+
+      // If no player played last, then must be lowest card in all hands
+      if (!topCard[0] || compareCards(cardToPlay, topCard[0]) === 1) {
+        const validMove = await redisClient.smoveAsync(
           getHandKey(roomId, player),
           getBoardKey(roomId),
           cardToPlay
         );
+
+        // If move was made, update current
+        if (validMove) {
+          const nextPlayer = (parseInt(currentPlayer, 10) + 1) % 4;
+
+          return Promise.all([
+            redisClient.setAsync(getCurrentPlayerKey(roomId), nextPlayer),
+            redisClient.setAsync(getLastPlayerKey(roomId), player)
+          ]);
+        }
+
+        return 0;
       }
 
       return 0;
-    }
+    },
+    getLowest: roomId => redisClient(getLowestDealtKey(roomId)),
+    getCurrentPlayer: roomId =>
+      redisClient.getAsync(getCurrentPlayerKey(roomId)),
+    getLastPlayer: roomId => redisClient.getAsync(getLastPlayerKey(roomId))
   };
 };

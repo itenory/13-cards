@@ -9,6 +9,9 @@ bluebird.promisifyAll(redis);
 /**
  *
  * Game Data keys
+ * Game Data keys
+ * Game Data keys
+ * Game Data keys
  * {roomId}:deck => set
  *
  * // Cards on Board
@@ -16,6 +19,15 @@ bluebird.promisifyAll(redis);
  *
  * // Player's Hand
  * {roomId}:player:{playerId} => set
+ *
+ * // Game State
+ *
+ *  Current Player
+ * {roomId}:current => string
+ *
+ *  // Current && Last Player; First move flag;
+ *
+ *
  */
 
 let redisClient;
@@ -146,5 +158,13 @@ describe('Playing cards', () => {
     // Board has both cards
     expect(board.includes(firstCardToPlay)).toBeTruthy();
     expect(board.includes(secondCardToPlay)).toBeTruthy();
+
+    const [currentPlayer, lastPlayer] = await Promise.all([
+      runner.getCurrentPlayer(roomId),
+      runner.getLastPlayer(roomId)
+    ]);
+
+    expect(parseInt(currentPlayer, 10)).toBe((player + 1) % 4);
+    expect(parseInt(lastPlayer, 10)).toBe(player);
   });
 });
