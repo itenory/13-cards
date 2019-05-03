@@ -71,7 +71,7 @@ describe('Initialize Game', () => {
     const runner = createController(redisClient);
     await runner.initGame(roomId, playerCount);
 
-    
+
     // Get lowest card dealt and all hands
     const hands = await runner.getAllHands(roomId);
     const lowestDealt = await runner.getLowest(roomId);
@@ -152,12 +152,12 @@ describe('Playing cards', () => {
     expect(results).toBeFalsy();
   });
 
-  test('Playing any card results in board change', async () => {  
+  test('Playing any card results in board change', async () => {
     // Find lowest card to dealt
     const cardToPlay = await runner.getLowest(roomId);
     const hands = await runner.getAllHands(roomId);
     let player;
-    
+
     hands.forEach((hand, index) => {
       if (hand.includes(cardToPlay)) {
         player = index + 1;
@@ -181,9 +181,6 @@ describe('Playing cards', () => {
     const hands = await runner.getAllHands(roomId);
     let player; // Player who holds lowest dealt card
     let nextPlayer;
-    let firstCardToPlay;
-    let secondCardToPlay;
-    let indexNextCard = 0;
 
     // Determine which player has the lowest card
     hands.forEach((hand, index) => {
@@ -194,8 +191,8 @@ describe('Playing cards', () => {
     });
 
     // Lowest card dealt and any card from next player
-    firstCardToPlay = lowestCardDealt;
-    secondCardToPlay = hands[nextPlayer-1][0];
+    const firstCardToPlay = lowestCardDealt;
+    const secondCardToPlay = hands[nextPlayer-1][0];
 
     // Play first card
     const firstCardResult = await runner.playCard(roomId, firstCardToPlay, player);
@@ -205,7 +202,7 @@ describe('Playing cards', () => {
     const secondCardResult = await runner.playCard(roomId, secondCardToPlay, nextPlayer);
     expect(secondCardResult).toBeTruthy();
 
-    // Board state 
+    // Board state
     const board = await runner.getBoard(roomId);
     expect(board).toBeDefined();
     expect(Array.isArray(board)).toBeTruthy();
@@ -220,7 +217,7 @@ describe('Playing cards', () => {
       runner.getLastPlayer(roomId)
     ]);
 
-    expect(parseInt(currentPlayer, 10)).toBe((nextPlayer + 1) % 4);
+    expect(parseInt(currentPlayer, 10)).toBe((nextPlayer % 4) + 1);
     expect(parseInt(lastPlayer, 10)).toBe(nextPlayer);
   });
 });
