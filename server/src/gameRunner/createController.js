@@ -170,9 +170,8 @@ function getLowestCard(hand) {
  */
 module.exports = function createController(redisClient) {
   return {
-    initGame: async (roomId, playerCount) => {
-      // Clear all reset in case of remaining data
-
+    initGame: async (roomId, playerCount, testDeck = null, testHands = null, testLowest = null ) => {
+      // Clear old game data
       const lows = []; // Stores the lowest card from each hand
       await Promise.all([
         redisClient.delAsync(getDeckKey(roomId), 52),
@@ -180,19 +179,25 @@ module.exports = function createController(redisClient) {
         redisClient.delAsync(getHandKey(roomId, 1), 52),
         redisClient.delAsync(getHandKey(roomId, 2), 52),
         redisClient.delAsync(getHandKey(roomId, 3), 52),
-        redisClient.delAsync(getHandKey(roomId, 4), 52)
+        redisClient.delAsync(getHandKey(roomId, 4), 52),
+        redisClient.delAsync(getCurrentPlayerKey(roomId)),
+        redisClient.delAsync(getLastPlayerKey(roomId))
       ]);
 
-      await redisClient.saddAsync(getDeckKey(roomId), deck);
+
+      // If test data provided, use that instead
+      await redisClient.saddAsync(getDeckKey(roomId), testDeck || deck);
+
       for (let player = 1; player <= playerCount; player++) {
-        const cards = await redisClient.spopAsync(getDeckKey(roomId), 5);
+        const cards = (!testDeck) ? await redisClient.spopAsync(getDeckKey(roomId), 5) : testHands[player-1];
+
         await redisClient.saddAsync(getHandKey(roomId, player), cards);
 
         // Get lowest card from each hand
        lows.push(getLowestCard(cards));
       }
 
-      const lowestDealt = getLowestCard(lows); // Find lowest dealt
+      const lowestDealt = testLowest || getLowestCard(lows); // Find lowest dealt
       return redisClient.setAsync(getLowestDealtKey(roomId), lowestDealt);
     },
     compareCards,
@@ -241,7 +246,7 @@ module.exports = function createController(redisClient) {
 
         // If move was made, update current
         if (validMove) {
-          const nextPlayer = (parseInt(currentPlayer, 10) + 1) % 4;
+          const nextPlayer = (parseInt(currentPlayer, 10) % 4) + 1;
 
           return Promise.all([
             redisClient.setAsync(getCurrentPlayerKey(roomId), nextPlayer),
