@@ -170,7 +170,13 @@ function getLowestCard(hand) {
  */
 module.exports = function createController(redisClient) {
   return {
-    initGame: async (roomId, playerCount, testDeck = null, testHands = null, testLowest = null ) => {
+    initGame: async (
+      roomId,
+      playerCount,
+      testDeck = null,
+      testHands = null,
+      testLowest = null
+    ) => {
       // Clear old game data
       const lows = []; // Stores the lowest card from each hand
       await Promise.all([
@@ -184,17 +190,18 @@ module.exports = function createController(redisClient) {
         redisClient.delAsync(getLastPlayerKey(roomId))
       ]);
 
-
       // If test data provided, use that instead
       await redisClient.saddAsync(getDeckKey(roomId), testDeck || deck);
 
       for (let player = 1; player <= playerCount; player++) {
-        const cards = (!testDeck) ? await redisClient.spopAsync(getDeckKey(roomId), 5) : testHands[player-1];
+        const cards = !testDeck
+          ? await redisClient.spopAsync(getDeckKey(roomId), 5)
+          : testHands[player - 1];
 
         await redisClient.saddAsync(getHandKey(roomId, player), cards);
 
         // Get lowest card from each hand
-       lows.push(getLowestCard(cards));
+        lows.push(getLowestCard(cards));
       }
 
       const lowestDealt = testLowest || getLowestCard(lows); // Find lowest dealt
@@ -216,7 +223,6 @@ module.exports = function createController(redisClient) {
       return redisClient.smembersAsync(getBoardKey(roomId));
     },
     playCard: async (roomId, cardToPlay, player) => {
-
       // Get top card, current & last player
       let [topCard, currentPlayer, lastPlayer] = await Promise.all([
         redisClient.smembersAsync(getBoardKey(roomId)),
@@ -258,6 +264,30 @@ module.exports = function createController(redisClient) {
       }
 
       return 0;
+    },
+    passTurn: async (roomId, player) => {
+      // Check if player is current player
+      const [currentPlayer, lastPlayer] = await Promise.all([
+        redisClient.getAsync(getCurrentPlayerKey(roomId)),
+        redisClient.getAsync(getLastPlayerKey(roomId))
+      ]);
+      const nextPlayer = (currentPlayer % 4) + 1;
+
+      // Only allow current player to pass their turn
+      if (currentPlayer != player) {
+        return false;
+      }
+
+      // Reset board after all players have passed
+      if (currentPlayer == lastPlayer) {
+        return Promise.all([
+          redisClient.spopAsync(getBoardKey(roomId), 52),
+          redisClient.delAsync(getLastPlayerKey(roomId))
+        ]);
+      }
+
+      // Set current play to next player
+      return redisClient.setAsync(getCurrentPlayerKey(roomId), nextPlayer);
     },
     getLowest: roomId => redisClient.getAsync(getLowestDealtKey(roomId)),
     getCurrentPlayer: roomId =>
