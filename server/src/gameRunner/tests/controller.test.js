@@ -152,7 +152,7 @@ describe('Getting player hand', () => {
   });
 });
 
-describe('Playing cards', () => {
+describe('Playing single cards', () => {
   const roomId = '5';
   const playerCount = '4';
   let runner;
@@ -169,7 +169,7 @@ describe('Playing cards', () => {
   });
 
   test('Playing card not in playerhand returns 0', async () => {
-    const results = await runner.playCard(roomId, 'A', 1);
+    const results = await runner.playCards(roomId, ['A'], 1);
 
     expect(results).toBeFalsy();
   });
@@ -177,7 +177,7 @@ describe('Playing cards', () => {
   test('Playing any card results in board change', async () => {
     const [firstCard, firstPlayer] = await lowestDealtInRoom(runner, roomId);
 
-    const result = await runner.playCard(roomId, firstCard, firstPlayer);
+    const result = await runner.playCards(roomId, [firstCard], firstPlayer);
     expect(result).toBeTruthy();
 
     const board = await runner.getBoard(roomId);
@@ -193,7 +193,7 @@ describe('Playing cards', () => {
     const [firstCard, firstPlayer] = await lowestDealtInRoom(runner, roomId);
     const secondPlayer = (firstPlayer % 4) + 1;
 
-    const result = await runner.playCard(roomId, firstCard, firstPlayer);
+    const result = await runner.playCards(roomId, [firstCard], firstPlayer);
     expect(result).toBeTruthy();
 
     const [currentPlayer, lastPlayer] = await Promise.all([
@@ -219,17 +219,17 @@ describe('Playing cards', () => {
     const secondCardToPlay = hands[secondPlayer - 1][0];
 
     // Play first card
-    const firstCardResult = await runner.playCard(
+    const firstCardResult = await runner.playCards(
       roomId,
-      firstCardToPlay,
+      [firstCardToPlay],
       firstPlayer
     );
     expect(firstCardResult).toBeTruthy();
 
     // Play Second card
-    const secondCardResult = await runner.playCard(
+    const secondCardResult = await runner.playCards(
       roomId,
-      secondCardToPlay,
+      [secondCardToPlay],
       secondPlayer
     );
     expect(secondCardResult).toBeTruthy();
@@ -251,6 +251,264 @@ describe('Playing cards', () => {
 
     expect(parseInt(currentPlayer, 10)).toBe((secondPlayer % 4) + 1);
     expect(parseInt(lastPlayer, 10)).toBe(secondPlayer);
+  });
+});
+
+describe('Playing multiple cards', () => {
+  const roomId = '10';
+  const playerCount = 4;
+  let runner;
+
+  const testHands = [
+    ['S3', 'D3', 'H3', 'C3', 'S4', 'D4', 'H4', 'S5', 'D5', 'H5', 'S6', 'S7'],
+    ['S10', 'D10', 'C10', 'H10', 'S11', 'S12', 'S13', 'S1', 'S2']
+  ];
+
+  // Initialize a new game with test data
+  beforeEach(async () => {
+    runner = createController(redisClient);
+    await runner.initGame(roomId, playerCount, null, testHands, 'S3');
+  });
+
+  // Clear database between runs
+  afterEach(async () => {
+    await redisClient.flushallAsync();
+  });
+
+  describe('Playing pairs', () => {
+    test('Valid Pair', async () => {
+      const cardsToPlay = ['S3', 'D3'];
+      const result = await runner.playCards(roomId, cardsToPlay, 1);
+      expect(result).toBeTruthy();
+
+      // Both cards were moved to board and were removed from hand
+      const board = await runner.getBoard(roomId);
+      const playerHands = await runner.getAllHands(roomId);
+      expect(playerHands[0].includes('S3')).toBeFalsy();
+      expect(board).toHaveLength(2);
+
+      cardsToPlay.forEach(card => {
+        expect(board.includes(card)).toBeTruthy();
+        expect(playerHands[0].includes(card)).toBeFalsy();
+      });
+    });
+
+    test('Invalid pair', async () => {
+      const result = await runner.playCards(roomId, ['S3', 'S4'], 1);
+      expect(result).toBeFalsy();
+
+      // No cards were add to board
+      const board = await runner.getBoard(roomId);
+      expect(board).toHaveLength(0);
+
+      // Both cards are still in players hand
+      const playerHands = await runner.getAllHands(roomId);
+      expect(playerHands[0].includes('S3')).toBeTruthy();
+      expect(playerHands[0].includes('S4')).toBeTruthy();
+    });
+  });
+
+  describe('Playing triples', () => {
+    test('Valid triple', async () => {
+      const cardsToPlay = ['S3', 'D3', 'H3'];
+      const result = await runner.playCards(roomId, cardsToPlay, 1);
+      expect(result).toBeTruthy();
+
+      // All three cards were moved to board and were removed from hand
+      const board = await runner.getBoard(roomId);
+      const playerHands = await runner.getAllHands(roomId);
+      expect(board).toHaveLength(3); // Board should have 3 cards
+
+      cardsToPlay.forEach(card => {
+        expect(board.includes(card)).toBeTruthy();
+        expect(playerHands[0].includes(card)).toBeFalsy();
+      });
+    });
+
+    test('Invalid triple', async () => {
+      const result = await runner.playCards(roomId, ['S3', 'S4', 'H3'], 1);
+      expect(result).toBeFalsy();
+
+      // All three cards were moved to board
+      const board = await runner.getBoard(roomId);
+      expect(board).toHaveLength(0);
+
+      // All three cards were removed from hand
+      const playerHands = await runner.getAllHands(roomId);
+      expect(playerHands[0].includes('S3')).toBeTruthy();
+      expect(playerHands[0].includes('S4')).toBeTruthy();
+      expect(playerHands[0].includes('H3')).toBeTruthy();
+    });
+  });
+
+  describe('Playing runs', () => {
+    test('Valid run of singles', async () => {
+      const cardsToPlay = ['S3', 'S4', 'S5'];
+      const result = await runner.playCards(roomId, cardsToPlay, 1);
+      expect(result).toBeTruthy();
+
+      // All three cards put on board and removed from player's hand
+      const board = await runner.getBoard(roomId);
+      const playerHands = await runner.getAllHands(roomId);
+      expect(board).toHaveLength(3); // Board should have only three cards
+
+      cardsToPlay.forEach(card => {
+        expect(board.includes(card)).toBeTruthy();
+        expect(playerHands[0].includes(card)).toBeFalsy();
+      });
+    });
+
+    test('Valid run of singles including Ace and 2', async () => {
+      const firstRunToPlay = ['S3', 'S4', 'S5'];
+      const secondRunToPlay = ['S13', 'S1', 'S2'];
+
+      // Play a 3 striaght with lowest card
+      const firstResult = await runner.playCards(roomId, firstRunToPlay, 1);
+      expect(firstResult).toBeTruthy();
+
+      const secondResult = await runner.playCards(roomId, secondRunToPlay, 2);
+      expect(secondResult).toBeTruthy();
+
+      // All cards were placed on board and removed from players hand
+      const board = await runner.getBoard(roomId);
+      const playerHands = await runner.getAllHands(roomId);
+      expect(board).toHaveLength(6);
+
+      firstRunToPlay.concat(secondRunToPlay).forEach(card => {
+        expect(board.includes(card)).toBeTruthy();
+        expect(playerHands[0].includes(card)).toBeFalsy();
+        expect(playerHands[1].includes(card)).toBeFalsy();
+      });
+    });
+
+    test('Valid run of pairs', async () => {
+      const cardsToPlay = ['S3', 'D3', 'S4', 'D4', 'S5', 'D5'];
+      const result = await runner.playCards(roomId, cardsToPlay, 1);
+      expect(result).toBeTruthy();
+
+      const board = await runner.getBoard(roomId);
+      const playerHands = await runner.getAllHands(roomId);
+      expect(board).toHaveLength(6);
+
+      // All cards are on board and all cards removed from player's hand
+      cardsToPlay.forEach(card => {
+        expect(board.includes(card)).toBeTruthy();
+        expect(playerHands[0].includes(card)).toBeFalsy();
+      });
+    });
+
+    test('Valid run of triples', async () => {
+      const cardsToPlay = [
+        'S3',
+        'D3',
+        'H3',
+        'S4',
+        'D4',
+        'H4',
+        'S5',
+        'D5',
+        'H5'
+      ];
+      const result = await runner.playCards(roomId, cardsToPlay, 1);
+      expect(result).toBeTruthy();
+
+      const board = await runner.getBoard(roomId);
+      const playerHands = await runner.getAllHands(roomId);
+      expect(board).toHaveLength(9);
+
+      // All cards are on board and all cards removed from player's hand
+      cardsToPlay.forEach(card => {
+        expect(board.includes(card)).toBeTruthy();
+        expect(playerHands[0].includes(card)).toBeFalsy();
+      });
+    });
+
+    test('Playing pairs on a board of singles results in false', async () => {
+      const cardsToPlay = ['S10', 'D10'];
+      const singleResult = await runner.playCards(roomId, ['S3'], 1);
+      expect(singleResult).toBeTruthy();
+
+      // Play a pair after a single card
+      const pairResult = await runner.playCards(roomId, cardsToPlay, 2);
+      expect(pairResult).toBeFalsy();
+    });
+
+    test('Invalid run of singles skipping a value', async () => {
+      const cardsToPlay = ['S3', 'S4', 'S6'];
+      const result = await runner.playCards(roomId, cardsToPlay, 1);
+      expect(result).toBeFalsy();
+    });
+
+    test('Invalid run of pairs', async () => {
+      const cardsToPlay = ['S3', 'D3', 'S4', 'D4'];
+      const result = await runner.playCards(roomId, cardsToPlay, 1);
+      expect(result).toBeFalsy();
+    });
+
+    test('Invalid run of triples', async () => {
+      const cardsToPlay = [
+        'S3',
+        'D3',
+        'H3',
+        'S4',
+        'D4',
+        'H4',
+        'S5',
+        'D5',
+        'S6'
+      ];
+      const result = await runner.playCards(roomId, cardsToPlay, 1);
+      expect(result).toBeFalsy();
+    });
+
+    test('Invalid run of mixed ', async () => {
+      const cardsToPlay = ['S3', 'D3', 'S4', 'D4', 'S5', 'D5', 'H5'];
+      const result = await runner.playCards(roomId, cardsToPlay, 1);
+      expect(result).toBeFalsy();
+    });
+  });
+
+  describe('Playing 4 of a kind', () => {
+    test('Valid 4 of a kind', async () => {
+      const cardsToPlay = ['S3', 'D3', 'H3', 'C3'];
+      const result = await runner.playCards(roomId, cardsToPlay, 1);
+      expect(result).toBeTruthy();
+
+      const board = await runner.getBoard(roomId);
+      const playerHands = await runner.getAllHands(roomId);
+      expect(board).toHaveLength(4);
+
+      // All cards are on board and all cards removed from player's hand
+      cardsToPlay.forEach(card => {
+        expect(board.includes(card)).toBeTruthy();
+        expect(playerHands[0].includes(card)).toBeFalsy();
+      });
+    });
+
+    test('4 of a kind can be played on any board type', async () => {
+      const cardsToPlay = ['S10', 'D10', 'H10', 'C10'];
+      const singleResult = await runner.playCards(roomId, ['S3'], 1);
+      expect(singleResult).toBeTruthy();
+
+      const result = await runner.playCards(roomId, cardsToPlay, 2);
+      expect(result).toBeTruthy();
+
+      const board = await runner.getBoard(roomId);
+      const playerHands = await runner.getAllHands(roomId);
+      expect(board).toHaveLength(5);
+
+      // All cards are on board and all cards removed from player's hand
+      cardsToPlay.forEach(card => {
+        expect(board.includes(card)).toBeTruthy();
+        expect(playerHands[0].includes(card)).toBeFalsy();
+      });
+    });
+
+    test('3 of a kind results in no change', async () => {
+      const cardsToPlay = ['S4', 'D3', 'H3', 'C3'];
+      const result = await runner.playCards(roomId, cardsToPlay, 1);
+      expect(result).toBeFalsy();
+    });
   });
 });
 
@@ -287,7 +545,7 @@ describe('Passing turn', () => {
   test('Passing turn not as current player results in false', async () => {
     const [firstCard, firstPlayer] = await lowestDealtInRoom(runner, roomId);
 
-    const result = await runner.playCard(roomId, firstCard, firstPlayer);
+    const result = await runner.playCards(roomId, [firstCard], firstPlayer);
     expect(result).toBeTruthy();
 
     const currentPlayer = await runner.getCurrentPlayer(roomId);
@@ -305,7 +563,7 @@ describe('Passing turn', () => {
     const [firstCard, firstPlayer] = await lowestDealtInRoom(runner, roomId);
     const playerToPass = (firstPlayer % 4) + 1;
 
-    const result = await runner.playCard(roomId, firstCard, firstPlayer);
+    const result = await runner.playCards(roomId, [firstCard], firstPlayer);
     expect(result).toBeTruthy();
 
     const passResult = await runner.passTurn(roomId, playerToPass);
@@ -327,7 +585,7 @@ describe('Passing turn', () => {
     const secondToPass = (firstToPass % 4) + 1;
     const thirdToPass = (secondToPass % 4) + 1;
 
-    const result = await runner.playCard(roomId, firstCard, firstPlayer);
+    const result = await runner.playCards(roomId, [firstCard], firstPlayer);
     expect(result).toBeTruthy();
 
     // Skip the next 3 turns, must happen in order
