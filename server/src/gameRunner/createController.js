@@ -56,8 +56,8 @@ const deck = [
 ];
 
 /**
- * Generates the redis key where the deck is stored.
- * @param {String} roomId Room id to form key for
+ * Generates and returns the redis key for a room's deck.
+ * @param {String} roomId Id of room to get deck key for
  * @return {String} Returns a redis key for a deck.
  */
 function getDeckKey(roomId) {
@@ -84,9 +84,27 @@ function getBoardKey(roomId) {
 }
 
 /**
- * Generates redis key for current player.
- * @param {String} roomId
- * @return {String} Returns the redis key for
+ * Generates and returns the redis key for the highest ranked card on board.
+ * @param {String} roomId Id of the room to get top card for
+ * @return {String} Returns the redis key for highest rank card on board.
+ */
+function getTopKey(roomId) {
+  return `${roomId}:top`;
+}
+
+/**
+ * Generates and returns the redis key for the board type for a specific room.
+ * @param {String} roomId Id of room to get board type for
+ * @return {String} Returns the redis key for the current board type.
+ */
+function getBoardTypeKey(roomId) {
+  return `${roomId}:boardType`;
+}
+
+/**
+ * Generates and returns a redis key for current player.
+ * @param {String} roomId Id of room to get current player for
+ * @return {String} Returns the redis key for the current player.
  */
 function getCurrentPlayerKey(roomId) {
   return `${roomId}:current`;
@@ -95,15 +113,15 @@ function getCurrentPlayerKey(roomId) {
 /**
  * Generates a redis key for the last player to move.
  * @param {String} roomId Id of room to generate key for
- * @return {String} Returns redis key for lasst player.
+ * @return {String} Returns redis key for last player.
  */
 function getLastPlayerKey(roomId) {
   return `${roomId}:last`;
 }
 
 /**
- *
- * @param {String} roomId
+ * Generates and returns redis key for lowest dealt
+ * @param {String} roomId Id of room to get loweset dealt from
  * @return {String} Returns a string with the
  */
 function getLowestDealtKey(roomId) {
@@ -114,8 +132,8 @@ function getLowestDealtKey(roomId) {
  * Compares two cards to determine if card1 is greater, equal, or less than
  *  card2. Current rules are set that 2 and Ace are highest value with suits
  *  ranking as (H)earts ♥, (D)iamonds ♦, (C)lubs ♣, (S)pades ♠.
- * @param {*} card1 A card in string form being compared
- * @param {*} card2 A card in string form being compared
+ * @param {String} card1 A card in string form being compared
+ * @param {String} card2 A card in string form being compared
  * @return {Number} Returns a number indicating the whether the card1 is
  *  greater (1), equal (0), or less (-1) than card2.
  */
@@ -147,20 +165,114 @@ function compareCards(card1, card2) {
 }
 
 /**
- *
- * @param {Array<String>} hand Array of cards to find the lowest in
- * @return {String} Returns lowest cards in hand.
+ * Checks if all cards provided share same number value. Used to check if cards
+ *  are pairs or triples.
+ * @param {Array<String>} cards Cards to check if they share same value
+ * @return {Boolean} Returns a boolean indicating if all cards share the same
+ *  value.
  */
-function getLowestCard(hand) {
-  let lowest = hand[0];
+function areSameValue(cards) {
+  const firstCard = parseInt(cards[0].substring(1), 10);
+  let sameValue = true;
 
-  hand.forEach(card => {
+  // Compare each card's value to determine if they share the same value
+  cards.forEach(card => {
+    const value = parseInt(card.substring(1), 10);
+
+    if (firstCard !== value) sameValue = false;
+  });
+
+  return sameValue;
+}
+
+/**
+ * Determine if cards to be played are a run and returns a numerical value
+ *  depending on the type of run.
+ * @param {Array<String>} cards Array of sorted cards to check if they are a run
+ * @return {Number} Returns a number indicating the type of run the cards have.
+ *  0 for no run, 1 for run of singles, 2 for run of pairs, 3 for run of triples.
+ */
+function typeOfRun(cards) {
+  if (cards.length < 3) return 0; // Run has to have more than 3 cards
+
+  const values = cards.map(card =>
+    parseInt(card.substring(1), 10) < 3
+      ? parseInt(card.substring(1), 10) + 13
+      : parseInt(card.substring(1), 10)
+  );
+  const lowestValue = values[0];
+  let runLength = 0; // 1 for signles, 2 for pairs, 3 for triples
+  let runType; // Type of run depending on testing
+
+  // Detemine if run is singles, pairs, or triples
+  while (values[0] === values[runLength]) runLength += 1;
+  runType = runLength;
+
+  // Compare cards according to type of run
+  for (let i = 0; i < values.length; i += runLength) {
+    for (let k = i; k < i + runLength; k += 1) {
+      if (values[k] !== lowestValue + i / runLength) runType = 0;
+    }
+  }
+
+  return runType;
+}
+
+/**
+ * Compares all cards to find and return the lowest ranked card.
+ * @param {Array<String>} cards Array of cards to find the lowest in
+ * @return {String} Returns lowest cards in provided cards.
+ */
+function getLowestCard(cards) {
+  let lowest = cards[0];
+
+  // Compare each card in cards to previous lowest
+  cards.forEach(card => {
     if (compareCards(lowest, card) === 1) {
       lowest = card;
     }
   });
 
   return lowest;
+}
+
+/**
+ * Determines the type of cards provided and returns an integer representation.
+ * @param {Array<String>} cards Cards to determine combination for
+ * @return {Number} Returns a number indicating what type of combination the
+ *  cards are: 0 for invlaid type, 1 for singles, 2 for pair, 3 for triple,
+ *  4 for run of singles, 5 for run of pairs, 6 for run of triples,
+ *  and 7 for 4 of a kind.
+ */
+function determineCombination(cards) {
+  switch (cards.length) {
+    case 1: // Can only be singles
+      return 1;
+
+    case 2: // Can only be pairs
+      return areSameValue(cards) ? 2 : 0;
+
+    case 3:
+      // Test for triple
+      if (areSameValue(cards)) return 3;
+
+      // Test for a run
+      if (typeOfRun(cards)) return 4;
+
+      return 0;
+
+    case 4: // Can only be 4 of a kind
+      return areSameValue(cards) ? 7 : 0;
+
+    default:
+      // More than 4 can only be a run
+      const runType = typeOfRun(cards);
+
+      if (runType === 1) return 4;
+      if (runType === 2) return 5;
+      if (runType === 3) return 6;
+      return 0;
+  }
 }
 
 /**
@@ -177,8 +289,8 @@ module.exports = function createController(redisClient) {
       testHands = null,
       testLowest = null
     ) => {
-      // Clear old game data
       const lows = []; // Stores the lowest card from each hand
+      // Clear old game data
       await Promise.all([
         redisClient.delAsync(getDeckKey(roomId), 52),
         redisClient.delAsync(getBoardKey(roomId), 52),
@@ -186,6 +298,8 @@ module.exports = function createController(redisClient) {
         redisClient.delAsync(getHandKey(roomId, 2), 52),
         redisClient.delAsync(getHandKey(roomId, 3), 52),
         redisClient.delAsync(getHandKey(roomId, 4), 52),
+        redisClient.delAsync(getTopKey(roomId)),
+        redisClient.delAsync(getBoardTypeKey(roomId)),
         redisClient.delAsync(getCurrentPlayerKey(roomId)),
         redisClient.delAsync(getLastPlayerKey(roomId))
       ]);
@@ -194,9 +308,10 @@ module.exports = function createController(redisClient) {
       await redisClient.saddAsync(getDeckKey(roomId), testDeck || deck);
 
       for (let player = 1; player <= playerCount; player++) {
-        const cards = !testDeck
-          ? await redisClient.spopAsync(getDeckKey(roomId), 5)
-          : testHands[player - 1];
+        const cards =
+          testHands && testHands[player - 1]
+            ? testHands[player - 1]
+            : await redisClient.spopAsync(getDeckKey(roomId), 5);
 
         await redisClient.saddAsync(getHandKey(roomId, player), cards);
 
@@ -222,19 +337,19 @@ module.exports = function createController(redisClient) {
     getBoard: roomId => {
       return redisClient.smembersAsync(getBoardKey(roomId));
     },
-    playCard: async (roomId, cardToPlay, player) => {
+    playCards: async (roomId, cardsToPlay, player) => {
       // Get top card, current & last player
-      let [topCard, currentPlayer, lastPlayer] = await Promise.all([
-        redisClient.smembersAsync(getBoardKey(roomId)),
+      let [topCard, currentPlayer, boardType] = await Promise.all([
+        redisClient.getAsync(getTopKey(roomId)),
         redisClient.getAsync(getCurrentPlayerKey(roomId)),
-        redisClient.getAsync(getLastPlayerKey(roomId))
+        redisClient.getAsync(getBoardTypeKey(roomId))
       ]);
 
       // First card(s) played must be lowest
       if (!currentPlayer) {
         const lowest = await redisClient.getAsync(getLowestDealtKey(roomId));
 
-        if (cardToPlay !== lowest) {
+        if (!cardsToPlay.includes(lowest)) {
           return 0;
         }
         currentPlayer = player;
@@ -242,21 +357,41 @@ module.exports = function createController(redisClient) {
         return 0;
       }
 
-      // If no player played last, then must be lowest card in all hands
-      if (!topCard[0] || compareCards(cardToPlay, topCard[0]) === 1) {
-        const validMove = await redisClient.smoveAsync(
-          getHandKey(roomId, player),
-          getBoardKey(roomId),
-          cardToPlay
-        );
+      // Compare board type to hand type
+      const handType = determineCombination(cardsToPlay);
+      if (
+        handType === 0 ||
+        (topCard && handType != boardType && handType !== 7)
+      ) {
+        return false; // Invalid hand type
+      }
 
-        // If move was made, update current
-        if (validMove) {
+      // If no player played last, then must be lowest card in all hands
+      if (
+        !topCard ||
+        compareCards(cardsToPlay[cardsToPlay.length - 1], topCard) === 1
+      ) {
+        const multi = redisClient.multi();
+
+        // Move cards from player's hands to board using redis transactions
+        cardsToPlay.forEach(card => {
+          multi.smove(getHandKey(roomId, player), getBoardKey(roomId), card);
+        });
+
+        const validMove = await multi.execAsync();
+
+        // If move was made, update game state
+        if (!validMove.includes(0)) {
           const nextPlayer = (parseInt(currentPlayer, 10) % 4) + 1;
 
           return Promise.all([
+            redisClient.setAsync(getBoardTypeKey(roomId), handType),
             redisClient.setAsync(getCurrentPlayerKey(roomId), nextPlayer),
-            redisClient.setAsync(getLastPlayerKey(roomId), player)
+            redisClient.setAsync(getLastPlayerKey(roomId), player),
+            redisClient.setAsync(
+              getTopKey(roomId),
+              cardsToPlay[cardsToPlay.length - 1]
+            )
           ]);
         }
 
@@ -282,7 +417,9 @@ module.exports = function createController(redisClient) {
       if (currentPlayer == lastPlayer) {
         return Promise.all([
           redisClient.spopAsync(getBoardKey(roomId), 52),
-          redisClient.delAsync(getLastPlayerKey(roomId))
+          redisClient.delAsync(getTopKey(roomId)),
+          redisClient.delAsync(getLastPlayerKey(roomId)),
+          redisClient.delAsync(getBoardTypeKey(roomId))
         ]);
       }
 
