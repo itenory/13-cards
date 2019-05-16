@@ -1,0 +1,24 @@
+dist: trusty
+
+language: node_js
+
+node_js:
+  - 10
+
+services:
+  - mongodb
+
+ env: 
+  - NODE_ENV=ci
+
+ before_install:
+   - sudo apt-get update
+   - sudo apt-get install redis-server
+   - sudo service redis-server start
+
+   - npm install --prefix server
+   - npm install --prefix app
+
+cache:
+  directories:
+    - "node_modules"
