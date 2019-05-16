@@ -1,4 +1,5 @@
-# 13-cards (Tiến lên)
+# 13-cards (Tiến lên) [![Build Status](https://travis-ci.com/williamstyronejr/13cards.svg?branch=master)](https://travis-ci.com/williamstyronejr/13cards)
+
 A card game called 13 cards, or Tien len, built with React and Node. Application use socket.io for communication between clients playing games. Redis is used to store and play out game states in memeory. 
 
 ### To run locally
