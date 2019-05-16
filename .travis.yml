@@ -19,6 +19,6 @@ before_install:
   - npm install --prefix server
   - npm install --prefix app
 
-  cache:
+cache:
   directories:
     - "node_modules"
