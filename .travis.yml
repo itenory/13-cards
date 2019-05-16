@@ -8,17 +8,17 @@ node_js:
 services:
   - mongodb
 
- env: 
+env:
   - NODE_ENV=ci
 
- before_install:
-   - sudo apt-get update
-   - sudo apt-get install redis-server
-   - sudo service redis-server start
+before_install:
+  - sudo apt-get update
+  - sudo apt-get install redis-server
+  - sudo service redis-server start
 
-   - npm install --prefix server
-   - npm install --prefix app
+  - npm install --prefix server
+  - npm install --prefix app
 
-cache:
+  cache:
   directories:
     - "node_modules"
