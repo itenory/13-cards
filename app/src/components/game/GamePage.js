@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 import { Redirect } from 'react-router-dom';
 import { ajaxRequest } from '../../utils/utils';
-import Loading from '../shared/Loading';
 import GameQueue from './GameQueue';
 import GameBoard from './GameBoard';
 
@@ -38,9 +37,9 @@ class GamePage extends Component {
 
     if (!roomId || matchError) return <Redirect to="/" />;
 
-    if (!matchStart) return <GameQueue roomId={roomId} />;
+    if (!matchStart) return <GameQueue playerCount={1} roomId={roomId} />;
 
-    return <GameBoard />;
+    return <GameBoard roomId={roomId} />;
   }
 }
 
