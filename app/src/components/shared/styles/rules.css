@@ -1,0 +1,49 @@
+.rules {
+  position: absolute;
+  width: 80%;
+  height: 80%;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: auto;
+  background-color: #fafafa;
+  z-index: 2;
+  -webkit-box-shadow: 0 8px 6px -6px black;
+  -moz-box-shadow: 0 8px 6px -6px black;
+  box-shadow: 0 8px 6px -6px black;
+}
+
+.rules__header {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 20%;
+  background-color: #ffffff;
+}
+
+.rules__title {
+  text-align: center;
+}
+
+.rules__scrollable {
+  padding: 0 1em;
+  height: 80%;
+  overflow: auto;
+}
+
+.rules__description {
+  padding: 0 1em;
+}
+
+.rules__section {
+}
+
+.rules__heading {
+}
+
+.rules__list {
+}
+
+.rules__items {
+}

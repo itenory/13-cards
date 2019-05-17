@@ -1,0 +1,22 @@
+.page-header {
+  width: 100%;
+  height: 100px;
+  background-color: blue;
+}
+
+.header__nav {
+  display: flex;
+}
+
+.header__list {
+  list-style: none;
+}
+
+.header__item {
+  display: inline-block;
+}
+
+.header__link {
+  text-decoration: none;
+  color: white;
+}

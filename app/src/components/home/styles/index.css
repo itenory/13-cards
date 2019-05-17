@@ -1,0 +1,15 @@
+.home {
+  display: flex;
+  flex: 1 0 auto;
+  flex-flow: column wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+.home__title {
+  font-size: 2em;
+}
+
+.home__options {
+  text-align: center;
+}

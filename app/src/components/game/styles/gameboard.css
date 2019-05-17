@@ -1,0 +1,90 @@
+.game {
+  display: flex;
+  flex-flow: column wrap;
+  flex: 1 0 auto;
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+
+.game__top {
+  display: flex;
+  flex: 1 0 auto;
+}
+
+.game__middle {
+  display: flex;
+  flex: 3 0 auto;
+}
+
+.game__bottom {
+  display: flex;
+  flex: 1 0 auto;
+}
+
+.game__info {
+  flex: 1 0 auto;
+  width: 100%;
+  background-color: red;
+}
+
+.game__board {
+  flex: 1 0 auto;
+  width: 100%;
+  background-color: green;
+}
+
+.game__player {
+  background-color: white;
+}
+
+.game__player-left {
+  display: none;
+}
+
+.game__player-right {
+  display: none;
+}
+
+.game__player-top {
+  display: none;
+}
+
+.game__player-bottom {
+  flex: 1 0 auto;
+  width: 100%;
+}
+
+@media only screen and (min-width: 600px) {
+  .game__info {
+    display: none;
+  }
+
+  .game__board {
+    flex: 3 0 auto;
+    width: auto;
+  }
+
+  .game__player {
+  }
+
+  .game__player-left {
+    display: block;
+    flex: 1 0 auto;
+  }
+
+  .game__player-right {
+    display: block;
+    flex: 1 0 auto;
+  }
+
+  .game__player-top {
+    display: block;
+    width: 100%;
+    flex: 1 0 auto;
+  }
+
+  .game__player-bottom {
+    width: 100%;
+  }
+}

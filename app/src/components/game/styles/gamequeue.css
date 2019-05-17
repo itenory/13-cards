@@ -1,0 +1,20 @@
+.queue {
+  display: flex;
+  flex: 1 0 auto;
+  width: 100%;
+  flex-flow: column wrap;
+  justify-content: center;
+  align-items: center;
+  padding: 1.3em 0;
+}
+
+.queue__options {
+  width: 100%;
+  flex: 0 1 auto;
+  text-align: center;
+}
+
+.queue__invite {
+  width: 100%;
+  word-wrap: break-word;
+}
