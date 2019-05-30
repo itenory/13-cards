@@ -1,20 +1,55 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import Loading from '../shared/Loading';
-import { startGame } from '../../utils/socket';
+import {
+  startGame,
+  subscribeQueue,
+  unsubscribeQueue,
+  joinGame
+} from '../../utils/socket';
 import './styles/gamequeue.css';
 
 class GameQueue extends Component {
+  state = {
+    playerCount: 1
+  };
+
+  /**
+   * Add listeners for queue
+   */
   componentDidMount() {
-    // Add listeners for queue
+    subscribeQueue(this.updateQueueData);
+    joinGame(this.props.roomId);
   }
 
+  /**
+   * Remove listeners for queue
+   */
   componentWillUnmount() {
-    // Remove listeners for queue
+    unsubscribeQueue();
   }
+
+  /**
+   *
+   * @param {Object<any>} data
+   */
+  updateQueueData = data => {
+    /**
+     * Possible board update
+     *  1. player join
+     *  2. player leaves
+     *  3. game starts
+     */
+    console.log(data);
+
+    this.setState({
+      playerCount: data.playerCount
+    });
+  };
 
   render() {
-    const { roomId, playerCount } = this.props;
+    const { roomId } = this.props;
+    const { playerCount } = this.state;
 
     return (
       <section className="queue">
