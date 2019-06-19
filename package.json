@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/itenory/13cards#readme",
   "devDependencies": {
-    "concurrently": "^4.1.0"
+    "concurrently": "^4.1.0",
+    "cypress": "^3.3.1"
   }
 }
