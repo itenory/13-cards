@@ -1,55 +1,29 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import Loading from '../shared/Loading';
-import {
-  startGame,
-  subscribeQueue,
-  unsubscribeQueue,
-  joinGame
-} from '../../utils/socket';
 import './styles/gamequeue.css';
 
 class GameQueue extends Component {
-  state = {
-    playerCount: 1
-  };
-
   /**
-   * Add listeners for queue
+   * Add listeners for queue and send request to join game.
    */
   componentDidMount() {
-    subscribeQueue(this.updateQueueData);
-    joinGame(this.props.roomId);
+    if (this.props.subscribeQueue(this.props.updateGameState)) {
+      this.props.joinGame(this.props.roomId);
+    } else {
+      this.props.updateGameState({ matchError: 'Socket not connected. ' });
+    }
   }
 
   /**
    * Remove listeners for queue
    */
   componentWillUnmount() {
-    unsubscribeQueue();
+    this.props.unsubscribeQueue();
   }
 
-  /**
-   *
-   * @param {Object<any>} data
-   */
-  updateQueueData = data => {
-    /**
-     * Possible board update
-     *  1. player join
-     *  2. player leaves
-     *  3. game starts
-     */
-    console.log(data);
-
-    this.setState({
-      playerCount: data.playerCount
-    });
-  };
-
   render() {
-    const { roomId } = this.props;
-    const { playerCount } = this.state;
+    const { roomId, playerCount } = this.props;
 
     return (
       <section className="queue">
@@ -62,7 +36,7 @@ class GameQueue extends Component {
           <button
             type="button"
             className="btn btn-med btn-start"
-            onClick={startGame}
+            onClick={() => this.props.startGame(roomId)}
           >
             Start Game
           </button>
@@ -73,7 +47,11 @@ class GameQueue extends Component {
 }
 
 GameQueue.propTypes = {
-  roomId: PropTypes.string.isRequired
+  roomId: PropTypes.string.isRequired,
+  playerCount: PropTypes.number.isRequired,
+  subscribeQueue: PropTypes.func.isRequired,
+  unsubscribeQueue: PropTypes.func.isRequired,
+  updateGameState: PropTypes.func.isRequired
 };
 
 export default GameQueue;
