@@ -48,10 +48,12 @@ function leaveGame(gameId) {
  */
 async function startGame(gameId) {
   // Client must be in room
-  if (this.rooms.indexOf(gameId) >= 0 && gameId) {
+  if (this.rooms[gameId] && gameId) {
+    const players = Object.keys(socket.sockets.adapter.rooms[gameId].sockets);
     const playerCount = socket.sockets.adapter.rooms[gameId].length;
-    await initGame(gameId, playerCount);
-    await markRoomStarted(gameId);
+
+    await initGame(gameId, players, playerCount);
+    await markRoomStarted(gameId, players);
 
     // Emit message back to clients
     emitToRoom(gameId, QUEUEUPDATE, { matchStart: true });
