@@ -128,10 +128,20 @@ function getLastPlayerKey(roomId) {
 /**
  * Generates and returns redis key for lowest dealt
  * @param {String} roomId Id of room to get loweset dealt from
- * @return {String} Returns a string with the
+ * @return {String} Returns the redis key for the lowest card dealt.
  */
 function getLowestDealtKey(roomId) {
   return `${roomId}:lowest`;
+}
+
+/**
+ * Generates and returns a redis key for a player's id by their position.
+ * @param {*} roomId Id of room to get player for
+ * @param {*} position Player's playing position (1, 2, 3, 4).
+ * @return {String} Returns the redis key for player id at a specific position.
+ */
+function getPlayerKey(roomId, position) {
+  return `${roomId}:player:${position}`;
 }
 
 /**
@@ -307,6 +317,7 @@ exports.compareCards = compareCards;
 /**
  *
  * @param {*} roomId
+ * @param {*} players
  * @param {*} playerCount
  * @param {*} testDeck
  * @param {*} testHands
@@ -314,6 +325,7 @@ exports.compareCards = compareCards;
  */
 exports.initGame = async (
   roomId,
+  players,
   playerCount,
   testDeck = null,
   testHands = null,
@@ -343,7 +355,10 @@ exports.initGame = async (
         ? testHands[player - 1]
         : await redisClient.spopAsync(getDeckKey(roomId), 5);
 
-    await redisClient.saddAsync(getHandKey(roomId, player), cards);
+    await Promise.all([
+      redisClient.saddAsync(getHandKey(roomId, player), cards),
+      redisClient.setAsync(getPlayerKey(roomId, player), players[player - 1])
+    ]);
 
     // Get lowest card from each hand
     lows.push(getLowestCard(cards));
@@ -505,3 +520,6 @@ exports.getCurrentPlayer = gameId => {
 exports.getLastPlayer = gameId => {
   return redisClient.getAsync(getLastPlayerKey(gameId));
 };
+
+exports.getPlayerPosition = (gameId, pos) =>
+  redisClient.getAsync(getPlayerKey(gameId, pos));
