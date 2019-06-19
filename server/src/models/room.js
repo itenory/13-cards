@@ -4,6 +4,7 @@ const { Schema } = mongoose;
 
 const roomSchema = new Schema({
   completed: { type: Boolean, default: false },
+  players: [{ type: String }],
   created: { type: Date, default: Date.now },
   started: { type: Boolean, default: false }
 });
