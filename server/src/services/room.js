@@ -43,9 +43,10 @@ exports.getRoomById = id => {
 /**
  * Finds and updates a room to have it's started flag set to true.
  * @param {String} id Id of room to mark as started
+ * @param {Array<String>} players Array of player ids that belong to the room.
  * @return {Promise<Object>} A promise to resolve with the room object, or
  *  reject if an error occurs.
  */
-exports.markRoomStarted = id => {
-  return Room.findByIdAndUpdate(id, { started: true }).exec();
+exports.markRoomStarted = (id, players = []) => {
+  return Room.findByIdAndUpdate(id, { started: true, players }).exec();
 };
