@@ -5,11 +5,16 @@ import GameQueue from './GameQueue';
 import GameBoard from './GameBoard';
 import Loading from '../shared/Loading';
 import {
-  startGame,
+  subscribeRoom,
+  unsubscribeRoom,
   subscribeQueue,
   unsubscribeQueue,
+  startGame,
   joinGame,
-  getUserId
+  getUserId,
+  playCards,
+  passTurn,
+  getGameState
 } from '../../utils/socket';
 
 class GamePage extends Component {
@@ -18,7 +23,9 @@ class GamePage extends Component {
     matchStart: false,
     matchError: null,
     matchLoading: true,
-    playerCount: 0
+    gameQueue: {},
+    playerCount: 0,
+    gameState: null
   };
 
   /**
@@ -50,7 +57,6 @@ class GamePage extends Component {
           });
         })
         .catch(err => {
-          console.log(err);
           this.setState({
             matchError: err.response.data,
             matchLoading: false
@@ -64,6 +70,18 @@ class GamePage extends Component {
    * @param {Object} state
    */
   updateGameState = state => {
+    this.setState({
+      gameState: {
+        ...state
+      }
+    });
+  };
+
+  /**
+   * Updates component state for game queue data.
+   * @param {Object} state Data to speard into queue object
+   */
+  updateGameQueue = state => {
     this.setState({ ...state });
   };
 
@@ -73,27 +91,39 @@ class GamePage extends Component {
       matchStart,
       matchError,
       matchLoading,
-      playerCount
+      playerCount,
+      gameState
     } = this.state;
 
     if (matchLoading) return <Loading message="Grabbing game data" />;
 
     if (!roomId || matchError) return <Redirect to="/" />;
 
-    if (!matchStart)
+    if (!matchStart) {
       return (
         <GameQueue
           roomId={roomId}
           playerCount={playerCount}
-          updateGameState={this.updateGameState}
+          updateGameState={this.updateGameQueue}
           joinGame={joinGame}
           startGame={startGame}
           subscribeQueue={subscribeQueue}
           unsubscribeQueue={unsubscribeQueue}
         />
       );
+    }
 
-    return <GameBoard roomId={roomId} />;
+    return (
+      <GameBoard
+        gameState={gameState}
+        getGameState={() => getGameState(roomId)}
+        updateGame={this.updateGameState}
+        subscribeRoom={subscribeRoom}
+        unsubscribeRoom={unsubscribeRoom}
+        passTurn={passTurn}
+        playCards={playCards}
+      />
+    );
   }
 }
 
