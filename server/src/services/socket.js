@@ -1,9 +1,20 @@
 const io = require('socket.io');
 const { markRoomStarted } = require('./room');
-const { initGame } = require('./redis');
+const {
+  initGame,
+  getBoard,
+  getLastPlayer,
+  getCurrentPlayer,
+  getAllHands,
+  getHandByPlayerId
+} = require('./redis');
 
-// Socket event names
+// Socket event names to send to clients
 const QUEUEUPDATE = 'queueUpdate';
+const GAMEUPDATE = 'gameUpdate';
+
+// Socket event names to be received
+const GETGAMESTATE = 'getGameState';
 const STARTGAME = 'startGame';
 const JOINGAME = 'joinGame';
 const LEAVEGAME = 'leaveGame';
@@ -61,6 +72,38 @@ async function startGame(gameId) {
 }
 
 /**
+ * Socket event handler for getting current state of a game. State includes
+ *  all necessary data to play game.
+ * @param {String} gameId Id of a game
+ */
+async function getGameState(gameId) {
+  try {
+    const [board, current, last, hands, hand] = await Promise.all([
+      getBoard(),
+      getCurrentPlayer(),
+      getLastPlayer(gameId),
+      getAllHands(gameId),
+      getHandByPlayerId(gameId, this.id)
+    ]);
+
+    const handCount = hands.map(hand => hand.length);
+
+    const gameState = {
+      board,
+      current,
+      last,
+      hand,
+      handCount
+    };
+
+    this.emit(GAMEUPDATE, gameState);
+  } catch (err) {
+    // Emit error moessage
+    this.emit(GAMEUPDATE, { error: 'Server error' });
+  }
+}
+
+/**
  * Event handler for client socket disconnect. Sends message to all rooms
  *  socket belongs to updating game room data.
  */
@@ -88,6 +131,7 @@ module.exports = function setupSocket(server) {
     client.on(JOINGAME, joinGame);
     client.on(LEAVEGAME, leaveGame);
     client.on(STARTGAME, startGame);
+    client.on(GETGAMESTATE, getGameState);
   });
 
   return socket;
