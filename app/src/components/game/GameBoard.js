@@ -1,11 +1,26 @@
 import React, { Component } from 'react';
-import {} from '../../utils/socket';
+import PropTypes from 'prop-types';
+import Loading from '../shared/Loading';
+import Card from './Card';
 import './styles/gameboard.css';
 
 class GameBoard extends Component {
-  state = {};
+  componentDidMount() {
+    this.props.subscribeRoom(this.props.updateGame);
+
+    // If game state isn't loaded, get current game state
+    if (!this.props.gameState) this.props.getGameState();
+  }
+
+  componentWillUnmount() {
+    this.props.unsubscribeRoom();
+  }
 
   render() {
+    const { gameState } = this.props;
+
+    if (!gameState) return <Loading message="Loading game" />;
+
     return (
       <section className="game">
         <div className="game__top">
@@ -27,5 +42,15 @@ class GameBoard extends Component {
     );
   }
 }
+
+GameBoard.propTypes = {
+  updateGame: PropTypes.func.isRequired,
+  subscribeRoom: PropTypes.func.isRequired,
+  unsubscribeRoom: PropTypes.func.isRequired,
+  playCards: PropTypes.func.isRequired,
+  passTurn: PropTypes.func.isRequired,
+  getGameState: PropTypes.func.isRequired,
+  gameState: PropTypes.object.isRequired
+};
 
 export default GameBoard;
