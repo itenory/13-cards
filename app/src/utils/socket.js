@@ -1,7 +1,12 @@
 import io from 'socket.io-client';
 
 let socket;
+
+// Socket event names
 const QUEUEUPDATE = 'queueUpdate';
+const GAMEUPDATE = 'gameUpdate';
+
+const GETGAMESTATE = 'getGameState';
 
 export function setupSocket(host, options = {}) {
   socket = io.connect(host, options);
@@ -23,6 +28,32 @@ export function subscribeQueue(cb) {
  */
 export function unsubscribeQueue() {
   socket.off(QUEUEUPDATE);
+}
+
+/**
+ * Creates an event listener to handle game state updates.
+ * @param {Function} cb Event handler for game state updates
+ * @return {Boolean} Returns a boolean indicating if socket handler was set.
+ */
+export function subscribeRoom(cb) {
+  if (!socket || !socket.connected) return false;
+  socket.on(GAMEUPDATE, cb);
+  return true;
+}
+
+/**
+ * Removes event listener for game state updates.
+ */
+export function unsubscribeRoom() {
+  socket.off(GAMEUPDATE);
+}
+
+/**
+ * Sends a socket event to get current state of a game
+ * @param {String} gameId Id of a game.
+ */
+export function getGameState(gameId) {
+  socket.emit(GETGAMESTATE, gameId);
 }
 
 /**
